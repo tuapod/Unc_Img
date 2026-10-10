@@ -3,927 +3,260 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vernier — AI Image Generator</title>
-    
-    <!-- Google Fonts: Fraunces + Outfit -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600;9..144,700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
-    <style>
-        /* ─── RESET & BASE ─── */
-        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-
-        :root {
-            --bg-deep: #06060a;
-            --bg-surface: rgba(14, 14, 22, 0.72);
-            --bg-glass: rgba(255, 255, 255, 0.035);
-            --border-glass: rgba(255, 255, 255, 0.07);
-            --border-hover: rgba(255, 255, 255, 0.14);
-            --text-primary: #eeeef5;
-            --text-secondary: #8a8aa3;
-            --text-muted: #55556b;
-            --accent-1: #7c6cf0;
-            --accent-2: #a78bfa;
-            --accent-3: #c4b5fd;
-            --glow-1: rgba(124, 108, 240, 0.35);
-            --glow-2: rgba(167, 139, 250, 0.25);
-            --radius-sm: 10px;
-            --radius-md: 16px;
-            --radius-lg: 24px;
-            --font-display: 'Fraunces', Georgia, serif;
-            --font-body: 'Outfit', -apple-system, sans-serif;
-            --transition: 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-        }
-
-        html { scroll-behavior: smooth; }
-
-        body {
-            font-family: var(--font-body);
-            background: var(--bg-deep);
-            color: var(--text-primary);
-            min-height: 100vh;
-            overflow-x: hidden;
-            -webkit-font-smoothing: antialiased;
-            line-height: 1.6;
-        }
-
-        /* ─── ANIMATED BACKGROUND ─── */
-        .bg-canvas {
-            position: fixed;
-            inset: 0;
-            z-index: 0;
-            overflow: hidden;
-            pointer-events: none;
-        }
-
-        .bg-canvas .orb {
-            position: absolute;
-            border-radius: 50%;
-            filter: blur(120px);
-            opacity: 0.5;
-            will-change: transform;
-        }
-
-        .orb-1 {
-            width: 600px; height: 600px;
-            background: radial-gradient(circle, rgba(124, 108, 240, 0.22), transparent 70%);
-            top: -15%; left: -10%;
-            animation: orbFloat1 22s ease-in-out infinite;
-        }
-        .orb-2 {
-            width: 500px; height: 500px;
-            background: radial-gradient(circle, rgba(167, 139, 250, 0.18), transparent 70%);
-            bottom: -20%; right: -8%;
-            animation: orbFloat2 26s ease-in-out infinite;
-        }
-        .orb-3 {
-            width: 400px; height: 400px;
-            background: radial-gradient(circle, rgba(100, 80, 220, 0.14), transparent 70%);
-            top: 45%; left: 55%;
-            animation: orbFloat3 20s ease-in-out infinite;
-        }
-
-        @keyframes orbFloat1 {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            33% { transform: translate(80px, 60px) scale(1.12); }
-            66% { transform: translate(-40px, 100px) scale(0.92); }
-        }
-        @keyframes orbFloat2 {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            33% { transform: translate(-70px, -50px) scale(1.08); }
-            66% { transform: translate(50px, -80px) scale(0.95); }
-        }
-        @keyframes orbFloat3 {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            50% { transform: translate(-60px, 40px) scale(1.15); }
-        }
-
-        .bg-canvas::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background-image: 
-                linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
-            background-size: 60px 60px;
-            mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
-            -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
-        }
-
-        /* ─── LAYOUT ─── */
-        .app-wrapper {
-            position: relative;
-            z-index: 1;
-            max-width: 1180px;
-            margin: 0 auto;
-            padding: 48px 24px 80px;
-        }
-
-        /* ─── HEADER ─── */
-        .header {
-            text-align: center;
-            margin-bottom: 56px;
-            animation: fadeSlideUp 0.9s ease-out both;
-        }
-
-        .header-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 7px 18px;
-            border-radius: 100px;
-            border: 1px solid var(--border-glass);
-            background: var(--bg-glass);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            font-size: 0.78rem;
-            font-weight: 500;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: var(--text-secondary);
-            margin-bottom: 24px;
-            transition: var(--transition);
-        }
-        .header-badge:hover {
-            border-color: var(--border-hover);
-            background: rgba(255,255,255,0.06);
-        }
-        .badge-dot {
-            width: 7px; height: 7px;
-            border-radius: 50%;
-            background: #4ade80;
-            box-shadow: 0 0 8px rgba(74, 222, 128, 0.6);
-            animation: pulseDot 2s ease-in-out infinite;
-        }
-        @keyframes pulseDot {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.5; transform: scale(0.8); }
-        }
-
-        .header h1 {
-            font-family: var(--font-display);
-            font-size: clamp(2.2rem, 5vw, 3.6rem);
-            font-weight: 600;
-            letter-spacing: -0.03em;
-            line-height: 1.12;
-            background: linear-gradient(135deg, #ffffff 0%, #c4b5fd 50%, #7c6cf0 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 14px;
-        }
-
-        .header p {
-            font-size: 1.05rem;
-            color: var(--text-secondary);
-            max-width: 520px;
-            margin: 0 auto;
-            font-weight: 300;
-        }
-
-        /* ─── MAIN GRID ─── */
-        .main-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 28px;
-            animation: fadeSlideUp 0.9s ease-out 0.15s both;
-        }
-
-        @media (max-width: 860px) {
-            .main-grid { grid-template-columns: 1fr; }
-            .app-wrapper { padding: 32px 16px 60px; }
-        }
-
-        /* ─── GLASS CARD ─── */
-        .glass-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border-glass);
-            border-radius: var(--radius-lg);
-            backdrop-filter: blur(24px) saturate(120%);
-            -webkit-backdrop-filter: blur(24px) saturate(120%);
-            padding: 32px;
-            position: relative;
-            overflow: hidden;
-            transition: border-color var(--transition), box-shadow var(--transition);
-        }
-        .glass-card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(196, 181, 253, 0.25), transparent);
-        }
-        .glass-card:hover {
-            border-color: var(--border-hover);
-            box-shadow: 0 0 60px rgba(124, 108, 240, 0.06);
-        }
-
-        .card-label {
-            font-family: var(--font-display);
-            font-size: 0.82rem;
-            font-weight: 600;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            color: var(--accent-2);
-            margin-bottom: 22px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .card-label::after {
-            content: '';
-            flex: 1;
-            height: 1px;
-            background: linear-gradient(90deg, var(--border-glass), transparent);
-        }
-
-        /* ─── FORM ELEMENTS ─── */
-        .field-group {
-            margin-bottom: 20px;
-        }
-        .field-group label {
-            display: block;
-            font-size: 0.82rem;
-            font-weight: 500;
-            color: var(--text-secondary);
-            margin-bottom: 8px;
-            letter-spacing: 0.02em;
-            transition: color var(--transition);
-        }
-        .field-group:focus-within label {
-            color: var(--accent-3);
-        }
-
-        .input-wrap {
-            position: relative;
-        }
-
-        input[type="text"],
-        input[type="number"],
-        textarea,
-        select {
-            width: 100%;
-            padding: 13px 16px;
-            border-radius: var(--radius-sm);
-            border: 1px solid var(--border-glass);
-            background: rgba(255,255,255,0.03);
-            color: var(--text-primary);
-            font-family: var(--font-body);
-            font-size: 0.92rem;
-            font-weight: 400;
-            outline: none;
-            transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
-            -webkit-appearance: none;
-            appearance: none;
-        }
-
-        input[type="text"]:focus,
-        input[type="number"]:focus,
-        textarea:focus,
-        select:focus {
-            border-color: rgba(124, 108, 240, 0.45);
-            box-shadow: 0 0 0 3px rgba(124, 108, 240, 0.1), 0 0 20px rgba(124, 108, 240, 0.08);
-            background: rgba(255,255,255,0.05);
-        }
-
-        input::placeholder,
-        textarea::placeholder {
-            color: var(--text-muted);
-            font-weight: 300;
-        }
-
-        textarea {
-            resize: vertical;
-            min-height: 90px;
-            line-height: 1.55;
-        }
-
-        select {
-            cursor: pointer;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238a8aa3' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 14px center;
-            padding-right: 38px;
-        }
-        select option {
-            background: #0e0e16;
-            color: var(--text-primary);
-        }
-
-        /* Range slider */
-        input[type="range"] {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 100%;
-            height: 4px;
-            border-radius: 2px;
-            background: linear-gradient(90deg, var(--accent-1), var(--accent-3));
-            outline: none;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 18px; height: 18px;
-            border-radius: 50%;
-            background: #fff;
-            border: 3px solid var(--accent-1);
-            box-shadow: 0 0 12px var(--glow-1);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-            cursor: grab;
-        }
-        input[type="range"]::-webkit-slider-thumb:hover {
-            transform: scale(1.15);
-            box-shadow: 0 0 20px var(--glow-1);
-        }
-        input[type="range"]::-moz-range-thumb {
-            width: 18px; height: 18px;
-            border-radius: 50%;
-            background: #fff;
-            border: 3px solid var(--accent-1);
-            box-shadow: 0 0 12px var(--glow-1);
-            cursor: grab;
-        }
-
-        .slider-row {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }
-        .slider-value {
-            min-width: 44px;
-            text-align: center;
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--accent-3);
-            background: rgba(124, 108, 240, 0.1);
-            padding: 4px 10px;
-            border-radius: 8px;
-            border: 1px solid rgba(124, 108, 240, 0.15);
-        }
-
-        /* Two-column row inside form */
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-        }
-        @media (max-width: 500px) {
-            .form-row { grid-template-columns: 1fr; }
-        }
-
-        /* ─── BUTTON ─── */
-        .btn-generate {
-            width: 100%;
-            padding: 16px 24px;
-            margin-top: 12px;
-            border: none;
-            border-radius: var(--radius-md);
-            background: linear-gradient(135deg, var(--accent-1), #6d5ce0, #8b7cf5);
-            background-size: 200% 200%;
-            color: #fff;
-            font-family: var(--font-body);
-            font-size: 1rem;
-            font-weight: 600;
-            letter-spacing: 0.03em;
-            cursor: pointer;
-            position: relative;
-            overflow: hidden;
-            transition: transform 0.25s ease, box-shadow 0.3s ease, background-position 0.5s ease;
-            box-shadow: 0 4px 24px rgba(124, 108, 240, 0.25);
-        }
-        .btn-generate:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 36px rgba(124, 108, 240, 0.4);
-            background-position: 100% 0;
-        }
-        .btn-generate:active:not(:disabled) {
-            transform: translateY(0) scale(0.985);
-        }
-        .btn-generate:disabled {
-            opacity: 0.55;
-            cursor: not-allowed;
-            transform: none;
-        }
-        .btn-generate .btn-text {
-            position: relative;
-            z-index: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
-
-        /* Button shimmer */
-        .btn-generate::after {
-            content: '';
-            position: absolute;
-            top: 0; left: -100%;
-            width: 100%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
-            transition: left 0.6s ease;
-        }
-        .btn-generate:hover:not(:disabled)::after {
-            left: 100%;
-        }
-
-        /* Spinner inside button */
-        .spinner {
-            width: 18px; height: 18px;
-            border: 2.5px solid rgba(255,255,255,0.25);
-            border-top-color: #fff;
-            border-radius: 50%;
-            animation: spin 0.7s linear infinite;
-            display: none;
-        }
-        .btn-generate.loading .spinner { display: block; }
-        .btn-generate.loading .btn-icon { display: none; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* ─── OUTPUT PANEL ─── */
-        .output-panel {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 480px;
-            position: relative;
-        }
-
-        .output-placeholder {
-            text-align: center;
-            color: var(--text-muted);
-            transition: opacity 0.4s ease;
-        }
-        .output-placeholder.hidden { opacity: 0; pointer-events: none; }
-        .placeholder-icon {
-            width: 72px; height: 72px;
-            margin: 0 auto 20px;
-            border-radius: 50%;
-            border: 1.5px dashed rgba(255,255,255,0.12);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            animation: breathe 3s ease-in-out infinite;
-        }
-        @keyframes breathe {
-            0%, 100% { transform: scale(1); opacity: 0.6; }
-            50% { transform: scale(1.06); opacity: 1; }
-        }
-        .placeholder-icon svg {
-            width: 30px; height: 30px;
-            stroke: var(--text-muted);
-            fill: none;
-            stroke-width: 1.5;
-        }
-        .output-placeholder p {
-            font-size: 0.9rem;
-            font-weight: 300;
-            color: var(--text-muted);
-        }
-
-        /* Loading overlay */
-        .output-loading {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 22px;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.4s ease;
-            z-index: 2;
-        }
-        .output-loading.active {
-            opacity: 1;
-            pointer-events: all;
-        }
-
-        .loading-ring {
-            width: 64px; height: 64px;
-            border-radius: 50%;
-            border: 3px solid rgba(255,255,255,0.06);
-            border-top-color: var(--accent-2);
-            border-right-color: var(--accent-1);
-            animation: spin 0.9s linear infinite;
-            box-shadow: 0 0 30px var(--glow-1), inset 0 0 20px rgba(124,108,240,0.08);
-        }
-
-        .loading-text {
-            font-size: 0.88rem;
-            color: var(--text-secondary);
-            font-weight: 400;
-            letter-spacing: 0.03em;
-        }
-
-        /* Progress bar */
-        .progress-track {
-            width: 160px;
-            height: 3px;
-            background: rgba(255,255,255,0.06);
-            border-radius: 2px;
-            overflow: hidden;
-        }
-        .progress-fill {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, var(--accent-1), var(--accent-3));
-            border-radius: 2px;
-            transition: width 0.4s ease;
-            box-shadow: 0 0 8px var(--glow-1);
-        }
-
-        /* Generated image */
-        .output-image-wrap {
-            display: none;
-            width: 100%;
-            opacity: 0;
-            transform: scale(0.97);
-            transition: opacity 0.6s ease, transform 0.6s ease;
-        }
-        .output-image-wrap.visible {
-            display: block;
-            opacity: 1;
-            transform: scale(1);
-        }
-        .output-image-wrap img {
-            width: 100%;
-            border-radius: var(--radius-md);
-            box-shadow: 0 12px 48px rgba(0,0,0,0.5), 0 0 0 1px var(--border-glass);
-            display: block;
-        }
-
-        /* Error message */
-        .error-toast {
-            display: none;
-            margin-top: 16px;
-            padding: 14px 18px;
-            border-radius: var(--radius-sm);
-            background: rgba(239, 68, 68, 0.08);
-            border: 1px solid rgba(239, 68, 68, 0.18);
-            color: #fca5a5;
-            font-size: 0.85rem;
-            line-height: 1.5;
-            animation: shakeIn 0.4s ease;
-        }
-        .error-toast.visible { display: block; }
-        @keyframes shakeIn {
-            0% { transform: translateX(-6px); opacity: 0; }
-            25% { transform: translateX(5px); }
-            50% { transform: translateX(-3px); }
-            75% { transform: translateX(2px); }
-            100% { transform: translateX(0); opacity: 1; }
-        }
-
-        /* ─── FOOTER ─── */
-        .footer {
-            text-align: center;
-            margin-top: 64px;
-            padding-top: 32px;
-            border-top: 1px solid var(--border-glass);
-            color: var(--text-muted);
-            font-size: 0.8rem;
-            font-weight: 300;
-            letter-spacing: 0.03em;
-            animation: fadeSlideUp 0.9s ease-out 0.35s both;
-        }
-        .footer a {
-            color: var(--text-secondary);
-            text-decoration: none;
-            transition: color var(--transition);
-        }
-        .footer a:hover { color: var(--accent-3); }
-
-        /* ─── ENTRANCE ANIMATION ─── */
-        @keyframes fadeSlideUp {
-            from { opacity: 0; transform: translateY(24px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* ─── SCROLLBAR ─── */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255,255,255,0.08);
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
-
-        /* ─── RESPONSIVE ─── */
-        @media (max-width: 600px) {
-            .glass-card { padding: 24px 20px; }
-            .header h1 { font-size: 2rem; }
-            .output-panel { min-height: 320px; }
-        }
-    </style>
+    <title>Vernier</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <!-- Animated background -->
-    <div class="bg-canvas">
-        <div class="orb orb-1"></div>
-        <div class="orb orb-2"></div>
-        <div class="orb orb-3"></div>
-    </div>
+    <!-- ═══════════ TOP-LEFT CONTROLS ═══════════ -->
+    <div class="top-controls">
 
-    <div class="app-wrapper">
-
-        <!-- Header -->
-        <header class="header">
-            <div class="header-badge">
-                <span class="badge-dot"></span>
-                API Connected
-            </div>
-            <h1>Vernier</h1>
-            <p>A AI image generator for creating uncensored images.</p>
-        </header>
-
-        <!-- Main Grid -->
-        <div class="main-grid">
-
-            <!-- ─── CONTROL PANEL ─── -->
-            <div class="glass-card">
-                <div class="card-label">Generation Parameters</div>
-
-                <div class="field-group">
-                    <label for="prompt">Prompt</label>
-                    <textarea id="prompt" placeholder="Describe the image you envision..." rows="3">1girl, dark cyberpunk street, neon rain, detailed face, sharp eyes, bare skin, athletic, highly detailed, masterpiece</textarea>
-                </div>
-
-                <div class="field-group">
-                    <label for="negative">Negative Prompt</label>
-                    <input type="text" id="negative" placeholder="Elements to exclude (optional)">
-                </div>
-
-                <div class="form-row">
-                    <div class="field-group">
-                        <label for="rating">Content Rating</label>
-                        <select id="rating">
-                            <option value="explicit" selected>Explicit</option>
-                            <option value="questionable">Questionable</option>
-                            <option value="safe">Safe</option>
-                            <option value="none">None</option>
-                        </select>
-                    </div>
-                    <div class="field-group">
-                        <label for="ratio">Aspect Ratio</label>
-                        <select id="ratio">
-                            <option value="16:9">16:9 Landscape</option>
-                            <option value="1:1">1:1 Square</option>
-                            <option value="9:16">9:16 Portrait</option>
-                            <option value="4:3">4:3 Classic</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="field-group">
-                    <label for="steps">Steps <span style="color:var(--text-muted);font-weight:300;">— processing precision</span></label>
-                    <div class="slider-row">
-                        <input type="range" id="steps" min="20" max="35" value="25" step="1">
-                        <span class="slider-value" id="steps-value">25</span>
-                    </div>
-                </div>
-
-                <div class="field-group">
-                    <label for="cfg">CFG Scale <span style="color:var(--text-muted);font-weight:300;">— prompt adherence</span></label>
-                    <div class="slider-row">
-                        <input type="range" id="cfg" min="4" max="8" value="6" step="0.5">
-                        <span class="slider-value" id="cfg-value">6.0</span>
-                    </div>
-                </div>
-
-                <div class="field-group">
-                    <label for="seed">Seed <span style="color:var(--text-muted);font-weight:300;">— -1 for random</span></label>
-                    <input type="number" id="seed" value="-1" step="1">
-                </div>
-
-                <button class="btn-generate" id="generate-btn">
-                    <span class="btn-text">
-                        <span class="btn-icon">✦</span>
-                        <span class="spinner"></span>
-                        <span id="btn-label">Generate Image</span>
-                    </span>
+        <!-- Brand + hidden pill -->
+        <div class="brand-wrap">
+            <button class="brand-icon" id="brand-btn" aria-label="Home">
+                <svg viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M2.5 18.2c0-4.9 4-8.9 8.9-8.9h.6c2.1 0 4 .7 5.5 1.9L23.5 8v6.4c.4.7.7 1.6.7 2.5 0 4.4-3.6 8-8 8h-5.7c-4.4 0-8-3-8-6.7z"/>
+                    <circle cx="9.2" cy="15.2" r="1.15" fill="#1a1a1a"/>
+                </svg>
+            </button>
+            <div class="pill">
+                <button class="pill-btn" id="menu-btn" aria-label="Chat history">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="16" rx="3"/>
+                        <line x1="9" y1="4" x2="9" y2="20"/>
+                    </svg>
                 </button>
-
-                <div class="error-toast" id="error-toast"></div>
+                <button class="pill-btn" id="search-btn" aria-label="Search">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="7"/>
+                        <line x1="16.5" y1="16.5" x2="21" y2="21"/>
+                    </svg>
+                </button>
+                <button class="pill-btn" id="new-chat-btn" aria-label="New chat">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                </button>
             </div>
-
-            <!-- ─── OUTPUT PANEL ─── -->
-            <div class="glass-card output-panel">
-
-                <div class="output-placeholder" id="placeholder">
-                    <div class="placeholder-icon">
-                        <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="3" y="3" width="18" height="18" rx="3"/>
-                            <circle cx="8.5" cy="8.5" r="1.5"/>
-                            <path d="M21 15l-5-5L5 21"/>
-                        </svg>
-                    </div>
-                    <p>Your generated image will appear here</p>
-                </div>
-
-                <div class="output-loading" id="loading">
-                    <div class="loading-ring"></div>
-                    <span class="loading-text" id="loading-text">Connecting to model...</span>
-                    <div class="progress-track">
-                        <div class="progress-fill" id="progress-fill"></div>
-                    </div>
-                </div>
-
-                <div class="output-image-wrap" id="image-wrap">
-                    <img id="output-img" alt="Generated image">
-                </div>
-
-            </div>
-
         </div>
 
-        <!-- Footer -->
-        <footer class="footer">
-            Vernier &mdash; Created by <a href="https://github.com/lfnightt" target="_blank" rel="noopener">LFnighTT</a> &amp; .
-        </footer>
+        <!-- ─── MODEL SELECTOR ─── -->
+        <div class="model-selector" id="model-selector" data-model="standard">
+            <button class="model-trigger" id="model-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                <span class="model-dot"></span>
+                <span class="model-name" id="model-name">Standard</span>
+                <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"/>
+                </svg>
+            </button>
 
+            <div class="model-dropdown" id="model-dropdown" role="listbox">
+                <div class="model-dropdown-label">Select model</div>
+
+                <button class="model-option active" data-model="standard" role="option" aria-selected="true">
+                    <div class="model-opt-icon">🎨</div>
+                    <div class="model-opt-info">
+                        <div class="model-opt-name">Standard</div>
+                        <div class="model-opt-desc">Safe, family-friendly images</div>
+                    </div>
+                    <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                </button>
+
+                <button class="model-option" data-model="uncensored" role="option" aria-selected="false">
+                    <div class="model-opt-icon">🔓</div>
+                    <div class="model-opt-info">
+                        <div class="model-opt-name">Uncensored</div>
+                        <div class="model-opt-desc">No content restrictions</div>
+                    </div>
+                    <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════════════════════
-         MODULE SCRIPT — Client imported from ESM build
-         ═══════════════════════════════════════════════════════════ -->
-    <script type="module">
-        import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client@1.10.0/+esm";
+    <!-- ═══════════ MAIN ═══════════ -->
+    <div class="main empty" id="main">
 
-        (function() {
-            'use strict';
+        <!-- Greeting -->
+        <div class="greeting" id="greeting">
+            <svg class="greeting-icon" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <path d="M2.5 18.2c0-4.9 4-8.9 8.9-8.9h.6c2.1 0 4 .7 5.5 1.9L23.5 8v6.4c.4.7.7 1.6.7 2.5 0 4.4-3.6 8-8 8h-5.7c-4.4 0-8-3-8-6.7z"/>
+                <circle cx="9.2" cy="15.2" r="1.15" fill="#1a1a1a"/>
+            </svg>
+            <h1>Hi! What's on your mind today?</h1>
+        </div>
 
-            const API_URL  = "https://5720b3513b21ba136a.gradio.live/";
-            const API_NAME = "/generate";
+        <!-- Messages -->
+        <div class="messages" id="messages"></div>
 
-            const $ = (id) => document.getElementById(id);
+        <!-- Input -->
+        <div class="input-area">
+            <div class="input-box" id="input-box">
+                <textarea
+                    id="prompt"
+                    placeholder="Describe an image to generate..."
+                    rows="1"
+                    autocomplete="off"
+                    spellcheck="false"
+                ></textarea>
 
-            const promptEl    = $('prompt');
-            const negativeEl  = $('negative');
-            const ratingEl    = $('rating');
-            const ratioEl     = $('ratio');
-            const stepsEl     = $('steps');
-            const stepsVal    = $('steps-value');
-            const cfgEl       = $('cfg');
-            const cfgVal      = $('cfg-value');
-            const seedEl      = $('seed');
+                <div class="input-footer">
+                    <div class="input-left">
+                        <button class="toggle-btn" id="settings-btn" type="button">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="3"/>
+                                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                            </svg>
+                            <span>Settings</span>
+                        </button>
+                        <button class="toggle-btn" id="enhance-btn" type="button" style="display: none;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 3l1.6 4.9L18.5 9.5l-4.9 1.6L12 16l-1.6-4.9L5.5 9.5l4.9-1.6z"/>
+                                <path d="M18.5 15l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z"/>
+                            </svg>
+                            <span>Enhance</span>
+                        </button>
+                    </div>
+                    <div class="input-right">
+                        <span class="char-count" id="char-count">0</span>
+                        <button class="send-btn" id="send-btn" aria-label="Send" type="button" disabled>
+                            <svg class="send-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="12" y1="19" x2="12" y2="6"/>
+                                <polyline points="6 12 12 6 18 12"/>
+                            </svg>
+                            <span class="send-spinner"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
 
-            const btn         = $('generate-btn');
-            const btnLabel    = $('btn-label');
-            const errorToast  = $('error-toast');
+            <div class="error-toast" id="error-toast"></div>
+            <div class="footer-hint">Vernier can make mistakes. Please verify important info.</div>
+        </div>
+    </div>
 
-            const placeholder = $('placeholder');
-            const loadingEl   = $('loading');
-            const loadingText = $('loading-text');
-            const progressFill= $('progress-fill');
-            const imageWrap   = $('image-wrap');
-            const outputImg   = $('output-img');
+    <!-- ═══════════ CHAT HISTORY SIDEBAR ═══════════ -->
+    <aside class="sidebar" id="sidebar" aria-hidden="true">
+        <div class="sidebar-header">
+            <div class="sidebar-brand">
+                <svg viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M2.5 18.2c0-4.9 4-8.9 8.9-8.9h.6c2.1 0 4 .7 5.5 1.9L23.5 8v6.4c.4.7.7 1.6.7 2.5 0 4.4-3.6 8-8 8h-5.7c-4.4 0-8-3-8-6.7z"/>
+                    <circle cx="9.2" cy="15.2" r="1.15" fill="#1a1a1a"/>
+                </svg>
+                <span>Chats</span>
+            </div>
+            <button class="close-btn" id="close-sidebar" aria-label="Close">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
 
-            stepsEl.addEventListener('input', () => { stepsVal.textContent = stepsEl.value; });
-            cfgEl.addEventListener('input', () => { cfgVal.textContent = parseFloat(cfgEl.value).toFixed(1); });
+        <div class="sidebar-toolbar">
+            <button class="new-chat-side" id="new-chat-side">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                <span>New chat</span>
+            </button>
+        </div>
 
-            let isGenerating = false;
-            let gradioClient = null;
+        <div class="sidebar-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="7"/>
+                <line x1="16.5" y1="16.5" x2="21" y2="21"/>
+            </svg>
+            <input type="text" id="history-search" placeholder="Search chats...">
+        </div>
 
-            function setLoading(active, message) {
-                isGenerating = active;
-                btn.disabled = active;
-                btn.classList.toggle('loading', active);
-                btnLabel.textContent = active ? 'Generating...' : 'Generate Image';
+        <div class="sidebar-body" id="history-list">
+            <!-- Chats rendered by JS -->
+        </div>
 
-                if (active) {
-                    placeholder.classList.add('hidden');
-                    imageWrap.classList.remove('visible');
-                    loadingEl.classList.add('active');
-                    if (message) loadingText.textContent = message;
-                    errorToast.classList.remove('visible');
-                } else {
-                    loadingEl.classList.remove('active');
-                }
-            }
+        <div class="sidebar-footer">
+            <button class="ghost-btn" id="clear-all">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                    <line x1="10" y1="11" x2="10" y2="17"/>
+                    <line x1="14" y1="11" x2="14" y2="17"/>
+                </svg>
+                <span>Clear all chats</span>
+            </button>
+        </div>
+    </aside>
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
 
-            function showError(msg) {
-                errorToast.textContent = msg;
-                errorToast.classList.add('visible');
-                placeholder.classList.remove('hidden');
-                imageWrap.classList.remove('visible');
-            }
+    <!-- ═══════════ SETTINGS MODAL ═══════════ -->
+    <div class="modal-overlay" id="settings-modal" aria-hidden="true">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+            <div class="modal-header">
+                <h2 id="settings-title">Generation Settings</h2>
+                <button class="close-btn" id="close-settings" aria-label="Close">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
 
-            function showImage(src) {
-                outputImg.src = src;
-                imageWrap.classList.add('visible');
-                placeholder.classList.add('hidden');
-                loadingEl.classList.remove('active');
-            }
+            <div class="modal-body">
 
-            function setProgress(pct) {
-                progressFill.style.width = Math.min(pct, 100) + '%';
-            }
+                <!-- ★ AI ENGINE (dynamic by main model) -->
+                <div class="field-group">
+                    <label for="engine">
+                        AI Engine
+                        <span class="val" id="engine-badge">3 available</span>
+                    </label>
+                    <select id="engine">
+                        <!-- Options populated by JS -->
+                    </select>
+                    <div class="field-hint" id="engine-hint"></div>
+                </div>
 
-            async function getClient() {
-                if (gradioClient) return gradioClient;
-                loadingText.textContent = 'Connecting to API...';
-                setProgress(10);
-                gradioClient = await Client.connect(API_URL);
-                setProgress(25);
-                return gradioClient;
-            }
+                <div class="field-group">
+                    <label for="negative">Negative prompt</label>
+                    <input type="text" id="negative" placeholder="What to avoid...">
+                </div>
 
-            async function generate() {
-                if (isGenerating) return;
+                <div class="field-group">
+                    <label for="ratio">Aspect ratio</label>
+                    <select id="ratio">
+                        <option value="16:9 Landscape (1216x832)" selected>16:9 Landscape</option>
+                        <option value="1:1 Square (1024x1024)">1:1 Square</option>
+                        <option value="9:16 Portrait (832x1216)">9:16 Portrait</option>
+                    </select>
+                </div>
 
-                const prompt = promptEl.value.trim();
-                if (!prompt) {
-                    showError('Please enter a prompt before generating.');
-                    return;
-                }
+                <div class="field-group">
+                    <label>Steps <span class="val" id="steps-value">28</span></label>
+                    <input type="range" id="steps" min="20" max="35" value="28" step="1">
+                </div>
 
-                setLoading(true, 'Connecting to model...');
-                setProgress(5);
+                <div class="field-group">
+                    <label>CFG scale <span class="val" id="cfg-value">6.5</span></label>
+                    <input type="range" id="cfg" min="4" max="9" value="6.5" step="0.5">
+                </div>
 
-                try {
-                    const app = await getClient();
-                    setProgress(30);
-                    loadingText.textContent = 'Sending parameters...';
+                <div class="field-group">
+                    <label for="seed">Seed <span class="val">-1 = random</span></label>
+                    <input type="number" id="seed" value="-1" step="1">
+                </div>
+            </div>
 
-                    const payload = [
-                        prompt,
-                        negativeEl.value.trim(),
-                        ratingEl.value,
-                        ratioEl.value,
-                        parseInt(stepsEl.value, 10),
-                        parseFloat(cfgEl.value),
-                        parseInt(seedEl.value, 10)
-                    ];
+            <div class="modal-footer">
+                <button class="primary-btn" id="save-settings">Done</button>
+            </div>
+        </div>
+    </div>
 
-                    loadingText.textContent = 'Generating image...';
-                    setProgress(55);
-
-                    const result = await app.predict(API_NAME, payload);
-
-                    setProgress(90);
-                    loadingText.textContent = 'Finalizing...';
-
-                    const data  = result && result.data ? result.data : result;
-                    const first = Array.isArray(data) ? data[0] : data;
-
-                    let imageSrc = null;
-
-                    if (typeof first === 'string') {
-                        if (first.startsWith('data:image')) {
-                            imageSrc = first;
-                        } else if (first.startsWith('http')) {
-                            imageSrc = first;
-                        } else {
-                            imageSrc = 'data:image/png;base64,' + first;
-                        }
-                    } else if (first && typeof first === 'object') {
-                        if (first.url)  imageSrc = first.url;
-                        else if (first.path) imageSrc = first.path;
-                        else if (first.name) imageSrc = first.name;
-                    }
-
-                    if (!imageSrc) {
-                        throw new Error('No image data received from the API. The response format may have changed.');
-                    }
-
-                    setProgress(100);
-                    showImage(imageSrc);
-
-                } catch (err) {
-                    console.error('Generation error:', err);
-                    let msg = 'An unexpected error occurred.';
-                    if (err && err.message) {
-                        if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
-                            msg = 'Could not reach the API. Ensure the Gradio server is running and the URL is correct.';
-                        } else if (err.message.includes('timeout')) {
-                            msg = 'The request timed out. The server may be busy — please try again.';
-                        } else {
-                            msg = err.message;
-                        }
-                    }
-                    showError(msg);
-                } finally {
-                    setLoading(false);
-                    setTimeout(() => setProgress(0), 600);
-                }
-            }
-
-            btn.addEventListener('click', generate);
-
-            document.addEventListener('keydown', (e) => {
-                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                    e.preventDefault();
-                    generate();
-                }
-            });
-
-        })();
-    </script>
+    <script src="script.js" type="module"></script>
 </body>
 </html>
