@@ -1,17 +1,21 @@
-# 使用轻量级的 Nginx 镜像
-FROM nginx:alpine
+# ─── Stage: Nginx static server ───
+FROM nginx:1.27-alpine
 
-# 移除 Nginx 默认的静态文件
+# Remove default nginx static assets
 RUN rm -rf /usr/share/nginx/html/*
 
-# 复制你的网站文件到 Nginx 目录
-COPY . /usr/share/nginx/html/
+# Copy site files
+COPY index.html /usr/share/nginx/html/index.html
 
-# 复制自定义的 Nginx 配置
+# Copy custom nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# 暴露端口（Railway 会通过 PORT 环境变量来覆盖）
+# Expose port (Railway overrides via PORT env)
 EXPOSE 80
 
-# 启动 Nginx
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD wget --quiet --tries=1 --spider http://localhost:80/ || exit 1
+
+# Run nginx in foreground
 CMD ["nginx", "-g", "daemon off;"]
