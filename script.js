@@ -21,7 +21,6 @@ import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client@1.10.0/+esm"
 
     /* ══════════════════════════════════════════
        ENGINES — sub-models per main model
-       value = exact string the server expects
        ══════════════════════════════════════════ */
     const ENGINES = {
         standard: [
@@ -49,8 +48,26 @@ import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client@1.10.0/+esm"
                 value: "Uncensored (Default)",
                 label: "Uncensored Default",
                 hint: "Unrestricted content — no filters",
-                defaults: { steps: 28, cfg: 6.5 }
+                defaults: { steps: 25, cfg: 6.0 }
             }
+        ]
+    };
+
+    /* ══════════════════════════════════════════
+       RATIOS PER MODEL — matches each server's
+       ASPECT_RATIOS keys EXACTLY
+       ══════════════════════════════════════════ */
+    const RATIOS_PER_MODEL = {
+        standard: [
+            { value: "16:9 Landscape (1216x832)", label: "16:9 Landscape" },
+            { value: "1:1 Square (1024x1024)",    label: "1:1 Square" },
+            { value: "9:16 Portrait (832x1216)",  label: "9:16 Portrait" }
+        ],
+        uncensored: [
+            { value: "16:9 (Landscape - یوتیوب)",           label: "16:9 Landscape" },
+            { value: "1:1 (Square - اینستاگرام و آواتار)",   label: "1:1 Square" },
+            { value: "9:16 (Portrait - شورتس و استوری)",    label: "9:16 Portrait" },
+            { value: "4:3 (کلاسیک)",                         label: "4:3 Classic" }
         ]
     };
 
@@ -74,6 +91,7 @@ import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client@1.10.0/+esm"
     const cfgEl       = $('cfg');
     const cfgVal      = $('cfg-value');
     const seedEl      = $('seed');
+    const ratingEl    = $('rating');
 
     const engineEl    = $('engine');
     const engineBadge = $('engine-badge');
@@ -166,7 +184,7 @@ import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client@1.10.0/+esm"
     }
 
     /* ══════════════════════════════════════════
-       ENGINE DROPDOWN
+       ENGINES + RATIOS POPULATION
        ══════════════════════════════════════════ */
     function populateEngines(modelKey) {
         const list = ENGINES[modelKey] || [];
@@ -183,6 +201,13 @@ import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client@1.10.0/+esm"
             engineEl.value = list[0].value;
             currentEngine = list[0].value;
             updateEngineHint(list[0]);
+
+            if (list[0].defaults) {
+                stepsEl.value = list[0].defaults.steps;
+                stepsVal.textContent = list[0].defaults.steps;
+                cfgEl.value = list[0].defaults.cfg;
+                cfgVal.textContent = list[0].defaults.cfg.toFixed(1);
+            }
         }
 
         engineBadge.textContent = list.length + ' available';
@@ -190,6 +215,23 @@ import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client@1.10.0/+esm"
         void engineBadge.offsetWidth;
         engineBadge.classList.add('pop');
         setTimeout(() => engineBadge.classList.remove('pop'), 400);
+
+        populateRatios(modelKey);
+    }
+
+    function populateRatios(modelKey) {
+        const list = RATIOS_PER_MODEL[modelKey] || [];
+        if (!ratioEl) return;
+
+        ratioEl.innerHTML = '';
+        list.forEach(r => {
+            const opt = document.createElement('option');
+            opt.value = r.value;
+            opt.textContent = r.label;
+            ratioEl.appendChild(opt);
+        });
+
+        if (list.length > 0) ratioEl.value = list[0].value;
     }
 
     function updateEngineHint(engine) {
@@ -219,7 +261,7 @@ import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client@1.10.0/+esm"
     });
 
     /* ══════════════════════════════════════════
-       TEXTAREA — autoresize + char count
+       TEXTAREA
        ══════════════════════════════════════════ */
     function syncTextarea() {
         promptEl.style.height = 'auto';
@@ -665,7 +707,7 @@ import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client@1.10.0/+esm"
     });
 
     /* ══════════════════════════════════════════
-       ENHANCE (optional)
+       ENHANCE
        ══════════════════════════════════════════ */
     const enhanceBtn = $('enhance-btn');
     if (enhanceBtn) {
@@ -718,13 +760,11 @@ import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client@1.10.0/+esm"
 
         const stage = status.stage;
 
-        /* ── QUEUED ── */
         if (stage === 'pending') {
             setLoadingText('In queue...');
             return;
         }
 
-        /* ── GENERATING — real-time updates ── */
         if (stage === 'generating') {
             const pd = Array.isArray(status.progress_data)
                 ? status.progress_data[status.progress_data.length - 1]
@@ -774,13 +814,33 @@ import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client@1.10.0/+esm"
             return;
         }
 
-        /* ── COMPLETE ── */
         if (stage === 'complete') {
             setLoadingText('Finalizing...');
             showProgress();
             setProgress(100);
             return;
         }
+    }
+
+    /* ══════════════════════════════════════════
+       BUILD PAYLOAD — per server
+       ══════════════════════════════════════════
+       Standard:   [engine, prompt, neg, ratio, steps, cfg, seed]
+       Uncensored: [prompt, neg, rating, ratio, steps, cfg, seed]
+       ══════════════════════════════════════════ */
+    function buildPayload(modelKey, engine, prompt) {
+        const neg   = negativeEl.value.trim() || "";
+        const ratio = ratioEl.value;
+        const steps = parseInt(stepsEl.value, 10);
+        const cfg   = parseFloat(cfgEl.value);
+        const seed  = parseInt(seedEl.value, 10);
+
+        if (modelKey === 'uncensored') {
+            const rating = (ratingEl && ratingEl.value) ? ratingEl.value : "explicit";
+            return [prompt, neg, rating, ratio, steps, cfg, seed];
+        }
+
+        return [engine, prompt, neg, ratio, steps, cfg, seed];
     }
 
     /* ══════════════════════════════════════════
@@ -831,21 +891,10 @@ import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client@1.10.0/+esm"
             const app = await getClient(modelKey);
             setLoadingText('Sending parameters...');
 
-            const payload = [
-                engine,
-                prompt,
-                negativeEl.value.trim() || "",
-                ratioEl.value,
-                parseInt(stepsEl.value, 10),
-                parseFloat(cfgEl.value),
-                parseInt(seedEl.value, 10)
-            ];
+            const payload = buildPayload(modelKey, engine, prompt);
 
-            /* ────────────────────────────────────
-               submit() returns an AsyncIterable.
-               Pass the payload ARRAY directly
-               (no spread, no { data } wrapper).
-               ──────────────────────────────────── */
+            console.log(`[${modelKey}] payload:`, payload);
+
             const submission = app.submit(config.apiName, payload);
 
             let finalResult = null;
@@ -863,12 +912,7 @@ import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client@1.10.0/+esm"
             setLoadingText('Finalizing...');
             setProgress(100);
 
-            /* ────────────────────────────────────
-               Server returns: [image, github_url]
-               - data[0] → gradio temp file/image
-               - data[1] → permanent GitHub raw URL
-                            (empty string if upload failed)
-               ──────────────────────────────────── */
+            /* Server returns: [image, github_url] */
             const data = finalResult && finalResult.data ? finalResult.data : finalResult;
 
             const githubUrl = (Array.isArray(data) &&
@@ -880,11 +924,9 @@ import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client@1.10.0/+esm"
 
             let src = null;
 
-            /* ⭐ Prefer the permanent GitHub URL */
             if (githubUrl) {
                 src = githubUrl;
             } else {
-                /* Fallback → gradio's temporary URL / base64 / object */
                 const first = Array.isArray(data) ? data[0] : data;
 
                 if (typeof first === 'string') {
