@@ -1,7 +1,26 @@
+# Git
 .git
 .gitignore
+.gitattributes
+
+# Docs
 README.md
+LICENSE
+
+# Docker
 Dockerfile
 .dockerignore
-node_modules
+docker-compose.yml
+
+# IDE
+.vscode
+.idea
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
 *.log
+npm-debug.log*
